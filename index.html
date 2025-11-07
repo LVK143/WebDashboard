@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Mini CRM Dashboard</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+
+<body>
+  <header class="header">
+    <h1>Mini CRM Dashboard</h1>
+  </header>
+
+  <main class="container">
+    <!-- Customer Form Section -->
+    <section class="form-section card">
+      <h2>Add New Customer</h2>
+      <form id="customerForm" autocomplete="off">
+        <div class="form-grid">
+          <div class="form-group">
+            <label for="name">Customer Name:</label>
+            <input type="text" id="name" name="name" placeholder="Enter customer name" required />
+          </div>
+
+          <div class="form-group">
+            <label for="email">Email:</label>
+            <input type="email" id="email" name="email" placeholder="Enter email address" required />
+          </div>
+
+          <div class="form-group">
+            <label for="phone">Phone:</label>
+            <input type="tel" id="phone" name="phone" placeholder="Enter phone number" required />
+          </div>
+
+          <div class="form-group">
+            <label for="company">Company:</label>
+            <input type="text" id="company" name="company" placeholder="Enter company name" required />
+          </div>
+        </div>
+
+        <button type="submit" id="submitBtn" class="primary-btn">
+          Add Customer
+        </button>
+      </form>
+    </section>
+
+    <!-- Customer Count -->
+    <div class="customer-count" id="customerCount">
+      Total Customers: 0
+    </div>
+
+    <!-- Customers Table Section -->
+    <section class="table-section card">
+      <h2>Customer List</h2>
+      <div class="table-container">
+        <table id="customerTable">
+          <thead>
+            <tr>
+              <th>Name</th>
+              <th>Email</th>
+              <th>Phone</th>
+              <th>Company</th>
+              <th>Actions</th>
+            </tr>
+          </thead>
+          <tbody id="customerList">
+            <!-- Dynamic rows will appear here -->
+          </tbody>
+        </table>
+      </div>
+    </section>
+  </main>
+
+  <footer class="footer">
+    <p>© 2025 Mini CRM | Designed by Vinay Kumar</p>
+  </footer>
+
+  <script src="script.js"></script>
+</body>
+</html>
