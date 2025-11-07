@@ -4,8 +4,13 @@ import json
 import os
 import sqlite3
 from datetime import datetime, timedelta
-import plotly.express as px
-import plotly.graph_objects as go
+# Remove plotly imports or handle gracefully
+try:
+    import plotly.express as px
+    import plotly.graph_objects as go
+    PLOTLY_AVAILABLE = True
+except ImportError:
+    PLOTLY_AVAILABLE = False
 
 # Page configuration
 st.set_page_config(
