@@ -255,22 +255,20 @@ def show_analytics():
         st.subheader("🏢 Industry Distribution")
         if 'industry' in df.columns:
             industry_counts = df['industry'].value_counts()
-            fig = px.pie(values=industry_counts.values, names=industry_counts.index)
-            st.plotly_chart(fig, use_container_width=True)
+            # Use Streamlit's native chart instead of Plotly
+            st.bar_chart(industry_counts)
     
     with col2:
-        st.subheader("📊 Company Size")
+        st.subheader("📊 Top Companies")
         company_counts = df['company'].value_counts().head(10)
-        fig = px.bar(x=company_counts.values, y=company_counts.index, orientation='h')
-        st.plotly_chart(fig, use_container_width=True)
+        st.bar_chart(company_counts)
     
     # Customer growth timeline
     st.subheader("📈 Customer Growth")
     if 'added_date' in df.columns:
         df['added_date'] = pd.to_datetime(df['added_date'])
         daily_counts = df.groupby(df['added_date'].dt.date).size().cumsum()
-        fig = px.line(x=daily_counts.index, y=daily_counts.values, title="Cumulative Customer Growth")
-        st.plotly_chart(fig, use_container_width=True)
+        st.line_chart(daily_counts)
 
 def show_segments():
     st.header("🎯 Customer Segments")
