@@ -4,7 +4,7 @@ import json
 import os
 from datetime import datetime
 
-# Page configuration - ONLY ONCE at the top
+# Page configuration
 st.set_page_config(
     page_title="Neo CRM Dashboard",
     page_icon="👥",
@@ -38,19 +38,22 @@ st.markdown("""
         padding-bottom: 0.5rem;
         margin-bottom: 1rem;
     }
-    .metric-card {
-        background: white;
-        padding: 1rem;
-        border-radius: 10px;
-        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-        border-left: 4px solid #667eea;
+    .delete-btn {
+        background-color: #ff4444;
+        color: white;
+        border: none;
+        padding: 0.5rem 1rem;
+        border-radius: 5px;
+        cursor: pointer;
+    }
+    .delete-btn:hover {
+        background-color: #cc0000;
     }
 </style>
 """, unsafe_allow_html=True)
 
 # Initialize session state for customers
 if 'customers' not in st.session_state:
-    # Try to load from file, otherwise start empty
     try:
         if os.path.exists('customers.json'):
             with open('customers.json', 'r') as f:
@@ -123,7 +126,6 @@ def main():
         st.markdown("---")
         st.header("👥 Add New Customer")
         
-        # UNIQUE FORM KEY: "add_customer_form"
         with st.form("add_customer_form", clear_on_submit=True):
             name = st.text_input("Customer Name", placeholder="Enter full name")
             email = st.text_input("Email", placeholder="Enter email address")
@@ -194,22 +196,50 @@ def main():
             st.warning("🔍 No customers match your search criteria.")
         else:
             if view_mode == "Table View":
-                # Table view with enhanced features
-                df = pd.DataFrame(filtered_customers)
+                # Enhanced Table View with Delete Buttons
+                st.subheader("📋 Customer Table")
                 
-                # Reorder columns for better display
-                column_order = ['name', 'email', 'phone', 'company', 'added_date']
-                existing_columns = [col for col in column_order if col in df.columns]
-                df = df[existing_columns + [col for col in df.columns if col not in column_order]]
+                # Create a dataframe for display
+                display_data = []
+                for i, customer in enumerate(filtered_customers):
+                    original_index = st.session_state.customers.index(customer)
+                    display_data.append({
+                        'Name': customer['name'],
+                        'Email': customer['email'],
+                        'Phone': customer['phone'],
+                        'Company': customer['company'],
+                        'Added Date': datetime.fromisoformat(customer.get('added_date', datetime.now().isoformat())).strftime('%Y-%m-%d'),
+                        'Actions': original_index  # Store index for actions
+                    })
                 
-                st.dataframe(
-                    df,
-                    use_container_width=True,
-                    hide_index=True
-                )
+                df = pd.DataFrame(display_data)
+                
+                # Display the table
+                for i, row in df.iterrows():
+                    col1, col2, col3, col4, col5, col6 = st.columns([2, 2, 2, 2, 2, 1])
+                    
+                    with col1:
+                        st.write(f"**{row['Name']}**")
+                    with col2:
+                        st.write(row['Email'])
+                    with col3:
+                        st.write(row['Phone'])
+                    with col4:
+                        st.write(row['Company'])
+                    with col5:
+                        st.write(row['Added Date'])
+                    with col6:
+                        # Delete button for each row
+                        if st.button("🗑️", key=f"delete_table_{i}", help="Delete customer"):
+                            customer_index = row['Actions']
+                            customer_name = delete_customer(customer_index)
+                            if customer_name:
+                                st.success(f"✅ Customer **{customer_name}** deleted successfully!")
+                                st.rerun()
                 
             else:
-                # Card view
+                # Card View
+                st.subheader("👥 Customer Cards")
                 for i, customer in enumerate(filtered_customers):
                     original_index = st.session_state.customers.index(customer)
                     
@@ -231,21 +261,42 @@ def main():
                             st.write("")  # Spacing
                             
                             # Edit button
-                            if st.button("✏️", key=f"edit_{i}", help="Edit customer"):
+                            if st.button("✏️ Edit", key=f"edit_{i}", use_container_width=True):
                                 st.session_state.editing_index = original_index
                                 st.session_state.edit_name = customer['name']
                                 st.session_state.edit_email = customer['email']
                                 st.session_state.edit_phone = customer['phone']
                                 st.session_state.edit_company = customer['company']
+                                st.rerun()
                             
-                            # Delete button
-                            if st.button("🗑️", key=f"delete_{i}", help="Delete customer"):
-                                customer_name = delete_customer(original_index)
-                                if customer_name:
-                                    st.success(f"✅ Customer **{customer_name}** deleted successfully!")
-                                    st.rerun()
-                                else:
-                                    st.error("❌ Error deleting customer")
+                            # Delete button with confirmation
+                            if st.button("🗑️ Delete", key=f"delete_{i}", use_container_width=True):
+                                st.session_state.delete_index = original_index
+                                st.session_state.delete_name = customer['name']
+                
+                # Delete confirmation modal
+                if 'delete_index' in st.session_state:
+                    st.markdown("---")
+                    st.warning(f"🚨 Are you sure you want to delete **{st.session_state.delete_name}**?")
+                    
+                    col1, col2 = st.columns(2)
+                    with col1:
+                        if st.button("✅ Yes, Delete", type="primary", use_container_width=True):
+                            customer_name = delete_customer(st.session_state.delete_index)
+                            if customer_name:
+                                st.success(f"✅ Customer **{customer_name}** deleted successfully!")
+                                if 'delete_index' in st.session_state:
+                                    del st.session_state.delete_index
+                                if 'delete_name' in st.session_state:
+                                    del st.session_state.delete_name
+                                st.rerun()
+                    with col2:
+                        if st.button("❌ Cancel", use_container_width=True):
+                            if 'delete_index' in st.session_state:
+                                del st.session_state.delete_index
+                            if 'delete_name' in st.session_state:
+                                del st.session_state.delete_name
+                            st.rerun()
 
             # Show filtered results count
             if search_term and len(filtered_customers) != len(st.session_state.customers):
@@ -256,7 +307,6 @@ def main():
         st.markdown("---")
         st.header("✏️ Edit Customer")
         
-        # UNIQUE FORM KEY: "edit_customer_form"
         with st.form("edit_customer_form"):
             col1, col2 = st.columns(2)
             
@@ -309,6 +359,36 @@ def main():
                     del st.session_state.editing_index
                 st.rerun()
 
+    # Bulk Delete Section
+    if st.session_state.customers:
+        st.markdown("---")
+        st.header("🗑️ Bulk Operations")
+        
+        # Simple bulk delete by index
+        col1, col2, col3 = st.columns([2, 2, 1])
+        
+        with col1:
+            delete_index = st.number_input(
+                "Customer number to delete:",
+                min_value=0,
+                max_value=len(st.session_state.customers)-1,
+                value=0,
+                step=1,
+                key="bulk_delete_input"
+            )
+        
+        with col2:
+            if st.session_state.customers:
+                customer = st.session_state.customers[delete_index]
+                st.write(f"Selected: **{customer['name']}**")
+        
+        with col3:
+            if st.button("Delete This Customer", type="secondary", use_container_width=True):
+                customer_name = delete_customer(delete_index)
+                if customer_name:
+                    st.success(f"✅ Customer **{customer_name}** deleted successfully!")
+                    st.rerun()
+
     # Export functionality
     if st.session_state.customers:
         st.markdown("---")
@@ -316,7 +396,7 @@ def main():
         
         df = pd.DataFrame(st.session_state.customers)
         
-        col1, col2, col3 = st.columns(3)
+        col1, col2 = st.columns(2)
         
         with col1:
             # CSV Export
@@ -339,22 +419,6 @@ def main():
                 mime="application/json",
                 use_container_width=True
             )
-        
-        with col3:
-            # Excel Export (if pandas supports it)
-            try:
-                excel_file = df.to_excel("customers.xlsx", index=False)
-                with open("customers.xlsx", "rb") as f:
-                    excel_data = f.read()
-                st.download_button(
-                    label="📥 Download Excel",
-                    data=excel_data,
-                    file_name="customers.xlsx",
-                    mime="application/vnd.ms-excel",
-                    use_container_width=True
-                )
-            except:
-                st.info("ℹ️ Excel export requires openpyxl")
 
     # Footer
     st.markdown("---")
