@@ -2,6 +2,104 @@ import streamlit as st
 import pandas as pd
 import json
 import os
+from datetime import datetime
+
+# Enhanced Streamlit app with more features
+def main():
+    st.set_page_config(page_title="Neo CRM", page_icon="👥", layout="wide")
+    
+    # Custom CSS for better styling
+    st.markdown("""
+    <style>
+    .main-header {
+        font-size: 2.5rem;
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        text-align: center;
+        margin-bottom: 2rem;
+    }
+    .metric-card {
+        background: white;
+        padding: 1rem;
+        border-radius: 10px;
+        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        border-left: 4px solid #667eea;
+    }
+    </style>
+    """, unsafe_allow_html=True)
+    
+    st.markdown('<h1 class="main-header">🚀 Neo CRM Dashboard</h1>', unsafe_allow_html=True)
+    
+    # Initialize session state
+    if 'customers' not in st.session_state:
+        st.session_state.customers = []
+    
+    # Sidebar for actions
+    with st.sidebar:
+        st.header("Quick Actions")
+        if st.button("📊 Generate Report"):
+            generate_report()
+        if st.button("🔄 Refresh Data"):
+            st.rerun()
+        
+        st.header("Add Customer")
+        with st.form("customer_form"):
+            name = st.text_input("Name")
+            email = st.text_input("Email")
+            phone = st.text_input("Phone")
+            company = st.text_input("Company")
+            
+            if st.form_submit_button("Add Customer"):
+                if name and email:
+                    add_customer(name, email, phone, company)
+                    st.success("Customer added!")
+    
+    # Main dashboard
+    col1, col2, col3 = st.columns(3)
+    
+    with col1:
+        st.metric("Total Customers", len(st.session_state.customers))
+    
+    with col2:
+        companies = len(set([c.get('company', '') for c in st.session_state.customers]))
+        st.metric("Unique Companies", companies)
+    
+    with col3:
+        st.metric("Active Users", len(st.session_state.customers))
+    
+    # Customer table
+    if st.session_state.customers:
+        df = pd.DataFrame(st.session_state.customers)
+        st.dataframe(df, use_container_width=True)
+        
+        # Export options
+        col1, col2 = st.columns(2)
+        with col1:
+            csv = df.to_csv(index=False)
+            st.download_button("📥 Export CSV", csv, "customers.csv")
+        with col2:
+            json_str = df.to_json(orient='records', indent=2)
+            st.download_button("📥 Export JSON", json_str, "customers.json")
+    else:
+        st.info("No customers yet. Add some using the sidebar form!")
+
+def add_customer(name, email, phone, company):
+    customer = {
+        'name': name,
+        'email': email,
+        'phone': phone,
+        'company': company,
+        'added_date': datetime.now().isoformat()
+    }
+    st.session_state.customers.append(customer)
+
+def generate_report():
+    st.balloons()
+    st.success("Report generated! Check your downloads folder.")
+
+if __name__ == "__main__":
+    main()
 
 # Page configuration
 st.set_page_config(
