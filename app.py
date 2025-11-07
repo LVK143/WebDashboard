@@ -2,17 +2,20 @@ import streamlit as st
 import pandas as pd
 import json
 import os
-from datetime import datetime
+import sqlite3
+from datetime import datetime, timedelta
+import plotly.express as px
+import plotly.graph_objects as go
 
 # Page configuration
 st.set_page_config(
-    page_title="Neo CRM Dashboard",
-    page_icon="👥",
+    page_title="Neo CRM Pro",
+    page_icon="🚀",
     layout="wide",
     initial_sidebar_state="expanded"
 )
 
-# Custom CSS for better styling
+# Custom CSS for advanced styling
 st.markdown("""
 <style>
     .main-header {
@@ -24,410 +27,350 @@ st.markdown("""
         margin-bottom: 2rem;
         font-weight: bold;
     }
-    .customer-card {
-        background-color: white;
+    .feature-card {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        padding: 1.5rem;
+        border-radius: 15px;
+        margin: 0.5rem;
+        text-align: center;
+    }
+    .metric-card {
+        background: white;
         padding: 1.5rem;
         border-radius: 10px;
         box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-        margin-bottom: 1rem;
-        border-left: 4px solid #3498db;
-    }
-    .section-header {
-        color: #2c3e50;
-        border-bottom: 2px solid #3498db;
-        padding-bottom: 0.5rem;
-        margin-bottom: 1rem;
-    }
-    .delete-btn {
-        background-color: #ff4444;
-        color: white;
-        border: none;
-        padding: 0.5rem 1rem;
-        border-radius: 5px;
-        cursor: pointer;
-    }
-    .delete-btn:hover {
-        background-color: #cc0000;
+        border-left: 4px solid #667eea;
+        margin: 0.5rem;
     }
 </style>
 """, unsafe_allow_html=True)
 
-# Initialize session state for customers
+# Initialize database
+def init_database():
+    conn = sqlite3.connect('crm.db')
+    c = conn.cursor()
+    c.execute('''
+        CREATE TABLE IF NOT EXISTS customers (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            name TEXT NOT NULL,
+            email TEXT UNIQUE NOT NULL,
+            phone TEXT,
+            company TEXT,
+            industry TEXT,
+            status TEXT DEFAULT 'active',
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )
+    ''')
+    conn.commit()
+    conn.close()
+
+# Initialize session state
 if 'customers' not in st.session_state:
-    try:
-        if os.path.exists('customers.json'):
-            with open('customers.json', 'r') as f:
-                st.session_state.customers = json.load(f)
-        else:
-            st.session_state.customers = []
-    except:
-        st.session_state.customers = []
-
-def save_customers():
-    """Save customers to JSON file"""
-    with open('customers.json', 'w') as f:
-        json.dump(st.session_state.customers, f, indent=2)
-
-def add_customer(name, email, phone, company):
-    """Add a new customer"""
-    new_customer = {
-        'name': name,
-        'email': email,
-        'phone': phone,
-        'company': company,
-        'added_date': datetime.now().isoformat(),
-        'id': len(st.session_state.customers) + 1
-    }
-    st.session_state.customers.append(new_customer)
-    save_customers()
-    return new_customer
-
-def delete_customer(index):
-    """Delete a customer"""
-    if 0 <= index < len(st.session_state.customers):
-        customer_name = st.session_state.customers[index]['name']
-        st.session_state.customers.pop(index)
-        save_customers()
-        return customer_name
-    return None
-
-def update_customer(index, name, email, phone, company):
-    """Update customer details"""
-    if 0 <= index < len(st.session_state.customers):
-        st.session_state.customers[index].update({
-            'name': name,
-            'email': email,
-            'phone': phone,
-            'company': company,
-            'updated_date': datetime.now().isoformat()
-        })
-        save_customers()
-        return True
-    return False
+    init_database()
+    st.session_state.customers = []
 
 def main():
-    # Header
-    st.markdown('<h1 class="main-header">🚀 Neo CRM Dashboard</h1>', unsafe_allow_html=True)
+    # Header with navigation
+    st.markdown('<h1 class="main-header">🚀 Neo CRM Pro</h1>', unsafe_allow_html=True)
     
-    # Sidebar for Quick Actions and Add Customer form
-    with st.sidebar:
-        st.header("⚡ Quick Actions")
-        
-        col1, col2 = st.columns(2)
-        with col1:
-            if st.button("📊 Report", use_container_width=True):
-                st.balloons()
-                st.success("Report generated successfully!")
-                
-        with col2:
-            if st.button("🔄 Refresh", use_container_width=True):
-                st.rerun()
-        
-        st.markdown("---")
-        st.header("👥 Add New Customer")
-        
-        with st.form("add_customer_form", clear_on_submit=True):
-            name = st.text_input("Customer Name", placeholder="Enter full name")
-            email = st.text_input("Email", placeholder="Enter email address")
-            phone = st.text_input("Phone", placeholder="Enter phone number")
-            company = st.text_input("Company", placeholder="Enter company name")
-            
-            submitted = st.form_submit_button("Add Customer", use_container_width=True)
-            if submitted:
-                if name and email and phone and company:
-                    new_customer = add_customer(name, email, phone, company)
-                    st.success(f"✅ Customer **{new_customer['name']}** added successfully!")
-                else:
-                    st.error("❌ Please fill in all fields!")
+    # Navigation
+    page = st.sidebar.selectbox(
+        "Navigate to:",
+        ["🏠 Dashboard", "👥 Customers", "📈 Analytics", "🎯 Segments", "⚙️ Settings"]
+    )
+    
+    if page == "🏠 Dashboard":
+        show_dashboard()
+    elif page == "👥 Customers":
+        show_customers()
+    elif page == "📈 Analytics":
+        show_analytics()
+    elif page == "🎯 Segments":
+        show_segments()
+    elif page == "⚙️ Settings":
+        show_settings()
 
-    # Main dashboard metrics
-    st.header("📊 Dashboard Overview")
+def show_dashboard():
+    st.header("🎯 Dashboard Overview")
     
+    # Quick stats
     col1, col2, col3, col4 = st.columns(4)
     
     with col1:
         total_customers = len(st.session_state.customers)
-        st.metric("Total Customers", total_customers)
+        st.metric("Total Customers", total_customers, "12%")
     
     with col2:
         unique_companies = len(set([c.get('company', '') for c in st.session_state.customers]))
-        st.metric("Unique Companies", unique_companies)
+        st.metric("Companies", unique_companies, "8%")
     
     with col3:
         today_count = len([c for c in st.session_state.customers 
                           if 'added_date' in c and 
                           datetime.fromisoformat(c['added_date']).date() == datetime.now().date()])
-        st.metric("Added Today", today_count)
+        st.metric("New Today", today_count)
     
     with col4:
-        st.metric("Active Users", total_customers)
-
-    # Search and filters section
-    st.header("🔍 Customer Management")
+        vip_count = len([c for c in st.session_state.customers 
+                        if c.get('company') in ['Tech Corp', 'Global Inc']])
+        st.metric("VIP Clients", vip_count)
     
-    col1, col2 = st.columns([2, 1])
+    # Recent activity
+    st.subheader("📋 Recent Activity")
+    if st.session_state.customers:
+        recent_customers = sorted(st.session_state.customers, 
+                                key=lambda x: x.get('added_date', ''), 
+                                reverse=True)[:5]
+        
+        for customer in recent_customers:
+            with st.expander(f"👤 {customer['name']} - {customer['company']}"):
+                col1, col2 = st.columns(2)
+                with col1:
+                    st.write(f"**Email:** {customer['email']}")
+                    st.write(f"**Phone:** {customer['phone']}")
+                with col2:
+                    st.write(f"**Added:** {datetime.fromisoformat(customer.get('added_date', datetime.now().isoformat())).strftime('%Y-%m-%d %H:%M')}")
+                    if st.button("Quick Actions", key=f"action_{customer['name']}"):
+                        st.session_state.editing_index = st.session_state.customers.index(customer)
+                        st.session_state.current_page = "👥 Customers"
+                        st.rerun()
+
+def show_customers():
+    st.header("👥 Customer Management")
+    
+    # Add customer form in sidebar
+    with st.sidebar:
+        st.header("➕ Add New Customer")
+        with st.form("add_customer_form", clear_on_submit=True):
+            name = st.text_input("Name")
+            email = st.text_input("Email")
+            phone = st.text_input("Phone")
+            company = st.text_input("Company")
+            industry = st.selectbox("Industry", ["Technology", "Healthcare", "Finance", "Education", "Other"])
+            
+            if st.form_submit_button("Add Customer"):
+                if name and email:
+                    new_customer = {
+                        'name': name, 'email': email, 'phone': phone, 
+                        'company': company, 'industry': industry,
+                        'added_date': datetime.now().isoformat()
+                    }
+                    st.session_state.customers.append(new_customer)
+                    st.success("Customer added!")
+                    st.rerun()
+    
+    # Search and filters
+    col1, col2, col3 = st.columns([2, 1, 1])
     
     with col1:
-        search_term = st.text_input("Search customers", 
-                                  placeholder="Search by name, email, or company...",
-                                  key="search_input")
+        search_term = st.text_input("🔍 Search customers", placeholder="Name, email, company...")
     
     with col2:
-        view_mode = st.radio("View Mode:", 
-                           ["Table View", "Card View"], 
-                           horizontal=True,
-                           key="view_mode")
-
+        industry_filter = st.selectbox("Industry", ["All", "Technology", "Healthcare", "Finance", "Education", "Other"])
+    
+    with col3:
+        sort_by = st.selectbox("Sort by", ["Newest", "Name A-Z", "Company"])
+    
     # Display customers
     if not st.session_state.customers:
-        st.info("🌟 No customers found. Add your first customer using the form in the sidebar!")
-    else:
-        # Filter customers based on search
-        filtered_customers = st.session_state.customers
-        if search_term:
-            filtered_customers = [
-                customer for customer in st.session_state.customers
-                if search_term.lower() in customer['name'].lower() 
-                or search_term.lower() in customer['email'].lower()
-                or search_term.lower() in customer['company'].lower()
-            ]
+        st.info("No customers yet. Add some using the sidebar form!")
+        return
+    
+    filtered_customers = st.session_state.customers
+    
+    # Apply filters
+    if search_term:
+        filtered_customers = [c for c in filtered_customers 
+                            if search_term.lower() in c['name'].lower() 
+                            or search_term.lower() in c['email'].lower()
+                            or search_term.lower() in c['company'].lower()]
+    
+    if industry_filter != "All":
+        filtered_customers = [c for c in filtered_customers if c.get('industry') == industry_filter]
+    
+    # Apply sorting
+    if sort_by == "Newest":
+        filtered_customers.sort(key=lambda x: x.get('added_date', ''), reverse=True)
+    elif sort_by == "Name A-Z":
+        filtered_customers.sort(key=lambda x: x['name'].lower())
+    elif sort_by == "Company":
+        filtered_customers.sort(key=lambda x: x.get('company', '').lower())
+    
+    # Display as interactive table
+    if filtered_customers:
+        df = pd.DataFrame(filtered_customers)
         
-        if not filtered_customers:
-            st.warning("🔍 No customers match your search criteria.")
-        else:
-            if view_mode == "Table View":
-                # Enhanced Table View with Delete Buttons
-                st.subheader("📋 Customer Table")
-                
-                # Create a dataframe for display
-                display_data = []
-                for i, customer in enumerate(filtered_customers):
-                    original_index = st.session_state.customers.index(customer)
-                    display_data.append({
-                        'Name': customer['name'],
-                        'Email': customer['email'],
-                        'Phone': customer['phone'],
-                        'Company': customer['company'],
-                        'Added Date': datetime.fromisoformat(customer.get('added_date', datetime.now().isoformat())).strftime('%Y-%m-%d'),
-                        'Actions': original_index  # Store index for actions
-                    })
-                
-                df = pd.DataFrame(display_data)
-                
-                # Display the table
-                for i, row in df.iterrows():
-                    col1, col2, col3, col4, col5, col6 = st.columns([2, 2, 2, 2, 2, 1])
-                    
-                    with col1:
-                        st.write(f"**{row['Name']}**")
-                    with col2:
-                        st.write(row['Email'])
-                    with col3:
-                        st.write(row['Phone'])
-                    with col4:
-                        st.write(row['Company'])
-                    with col5:
-                        st.write(row['Added Date'])
-                    with col6:
-                        # Delete button for each row
-                        if st.button("🗑️", key=f"delete_table_{i}", help="Delete customer"):
-                            customer_index = row['Actions']
-                            customer_name = delete_customer(customer_index)
-                            if customer_name:
-                                st.success(f"✅ Customer **{customer_name}** deleted successfully!")
-                                st.rerun()
-                
-            else:
-                # Card View
-                st.subheader("👥 Customer Cards")
-                for i, customer in enumerate(filtered_customers):
-                    original_index = st.session_state.customers.index(customer)
-                    
-                    with st.container():
-                        col1, col2 = st.columns([4, 1])
-                        
-                        with col1:
-                            st.markdown(f"""
-                            <div class="customer-card">
-                                <h4>👤 {customer['name']}</h4>
-                                <p><strong>📧 Email:</strong> {customer['email']}</p>
-                                <p><strong>📞 Phone:</strong> {customer['phone']}</p>
-                                <p><strong>🏢 Company:</strong> {customer['company']}</p>
-                                <p><small><strong>📅 Added:</strong> {datetime.fromisoformat(customer.get('added_date', datetime.now().isoformat())).strftime('%Y-%m-%d %H:%M')}</small></p>
-                            </div>
-                            """, unsafe_allow_html=True)
-                        
-                        with col2:
-                            st.write("")  # Spacing
-                            
-                            # Edit button
-                            if st.button("✏️ Edit", key=f"edit_{i}", use_container_width=True):
-                                st.session_state.editing_index = original_index
-                                st.session_state.edit_name = customer['name']
-                                st.session_state.edit_email = customer['email']
-                                st.session_state.edit_phone = customer['phone']
-                                st.session_state.edit_company = customer['company']
-                                st.rerun()
-                            
-                            # Delete button with confirmation
-                            if st.button("🗑️ Delete", key=f"delete_{i}", use_container_width=True):
-                                st.session_state.delete_index = original_index
-                                st.session_state.delete_name = customer['name']
-                
-                # Delete confirmation modal
-                if 'delete_index' in st.session_state:
-                    st.markdown("---")
-                    st.warning(f"🚨 Are you sure you want to delete **{st.session_state.delete_name}**?")
-                    
-                    col1, col2 = st.columns(2)
-                    with col1:
-                        if st.button("✅ Yes, Delete", type="primary", use_container_width=True):
-                            customer_name = delete_customer(st.session_state.delete_index)
-                            if customer_name:
-                                st.success(f"✅ Customer **{customer_name}** deleted successfully!")
-                                if 'delete_index' in st.session_state:
-                                    del st.session_state.delete_index
-                                if 'delete_name' in st.session_state:
-                                    del st.session_state.delete_name
-                                st.rerun()
-                    with col2:
-                        if st.button("❌ Cancel", use_container_width=True):
-                            if 'delete_index' in st.session_state:
-                                del st.session_state.delete_index
-                            if 'delete_name' in st.session_state:
-                                del st.session_state.delete_name
-                            st.rerun()
-
-            # Show filtered results count
-            if search_term and len(filtered_customers) != len(st.session_state.customers):
-                st.info(f"🔍 Showing {len(filtered_customers)} of {len(st.session_state.customers)} customers")
-
-    # Edit customer section (only show if editing)
-    if 'editing_index' in st.session_state:
-        st.markdown("---")
-        st.header("✏️ Edit Customer")
+        # Enhanced dataframe display
+        st.dataframe(
+            df[['name', 'email', 'phone', 'company', 'industry', 'added_date']],
+            use_container_width=True,
+            hide_index=True
+        )
         
-        with st.form("edit_customer_form"):
-            col1, col2 = st.columns(2)
+        # Action buttons for each customer
+        st.subheader("🛠️ Customer Actions")
+        for i, customer in enumerate(filtered_customers):
+            col1, col2, col3, col4 = st.columns([3, 1, 1, 1])
             
             with col1:
-                edit_name = st.text_input("Name", 
-                                        value=st.session_state.get('edit_name', ''),
-                                        key="edit_name")
-                edit_email = st.text_input("Email", 
-                                         value=st.session_state.get('edit_email', ''),
-                                         key="edit_email")
+                st.write(f"**{customer['name']}** - {customer['company']}")
             
             with col2:
-                edit_phone = st.text_input("Phone", 
-                                         value=st.session_state.get('edit_phone', ''),
-                                         key="edit_phone")
-                edit_company = st.text_input("Company", 
-                                           value=st.session_state.get('edit_company', ''),
-                                           key="edit_company")
+                if st.button("👀 View", key=f"view_{i}"):
+                    st.session_state.viewing_customer = customer
+                    show_customer_detail(customer)
             
-            col1, col2, col3 = st.columns([1, 1, 2])
+            with col3:
+                if st.button("✏️ Edit", key=f"edit_{i}"):
+                    st.session_state.editing_customer = customer
+                    st.session_state.edit_index = st.session_state.customers.index(customer)
             
-            with col1:
-                update_submitted = st.form_submit_button("💾 Update", use_container_width=True)
-            
-            with col2:
-                cancel_submitted = st.form_submit_button("❌ Cancel", use_container_width=True)
-            
-            if update_submitted:
-                if edit_name and edit_email and edit_phone and edit_company:
-                    success = update_customer(
-                        st.session_state.editing_index,
-                        edit_name,
-                        edit_email,
-                        edit_phone,
-                        edit_company
-                    )
-                    if success:
-                        st.success(f"✅ Customer **{edit_name}** updated successfully!")
-                        # Clear editing state
-                        if 'editing_index' in st.session_state:
-                            del st.session_state.editing_index
+            with col4:
+                if st.button("🗑️ Delete", key=f"delete_{i}"):
+                    if st.button("✅ Confirm Delete", key=f"confirm_delete_{i}"):
+                        st.session_state.customers.remove(customer)
+                        st.success("Customer deleted!")
                         st.rerun()
-                    else:
-                        st.error("❌ Error updating customer")
-                else:
-                    st.error("❌ Please fill in all fields!")
-            
-            if cancel_submitted:
-                if 'editing_index' in st.session_state:
-                    del st.session_state.editing_index
-                st.rerun()
 
-    # Bulk Delete Section
-    if st.session_state.customers:
-        st.markdown("---")
-        st.header("🗑️ Bulk Operations")
-        
-        # Simple bulk delete by index
-        col1, col2, col3 = st.columns([2, 2, 1])
-        
-        with col1:
-            delete_index = st.number_input(
-                "Customer number to delete:",
-                min_value=0,
-                max_value=len(st.session_state.customers)-1,
-                value=0,
-                step=1,
-                key="bulk_delete_input"
-            )
-        
-        with col2:
-            if st.session_state.customers:
-                customer = st.session_state.customers[delete_index]
-                st.write(f"Selected: **{customer['name']}**")
-        
-        with col3:
-            if st.button("Delete This Customer", type="secondary", use_container_width=True):
-                customer_name = delete_customer(delete_index)
-                if customer_name:
-                    st.success(f"✅ Customer **{customer_name}** deleted successfully!")
-                    st.rerun()
+def show_analytics():
+    st.header("📈 Advanced Analytics")
+    
+    if not st.session_state.customers:
+        st.info("Add some customers to see analytics!")
+        return
+    
+    df = pd.DataFrame(st.session_state.customers)
+    
+    # Industry distribution
+    col1, col2 = st.columns(2)
+    
+    with col1:
+        st.subheader("🏢 Industry Distribution")
+        if 'industry' in df.columns:
+            industry_counts = df['industry'].value_counts()
+            fig = px.pie(values=industry_counts.values, names=industry_counts.index)
+            st.plotly_chart(fig, use_container_width=True)
+    
+    with col2:
+        st.subheader("📊 Company Size")
+        company_counts = df['company'].value_counts().head(10)
+        fig = px.bar(x=company_counts.values, y=company_counts.index, orientation='h')
+        st.plotly_chart(fig, use_container_width=True)
+    
+    # Customer growth timeline
+    st.subheader("📈 Customer Growth")
+    if 'added_date' in df.columns:
+        df['added_date'] = pd.to_datetime(df['added_date'])
+        daily_counts = df.groupby(df['added_date'].dt.date).size().cumsum()
+        fig = px.line(x=daily_counts.index, y=daily_counts.values, title="Cumulative Customer Growth")
+        st.plotly_chart(fig, use_container_width=True)
 
-    # Export functionality
-    if st.session_state.customers:
-        st.markdown("---")
-        st.header("📤 Export Data")
-        
-        df = pd.DataFrame(st.session_state.customers)
-        
-        col1, col2 = st.columns(2)
-        
-        with col1:
-            # CSV Export
+def show_segments():
+    st.header("🎯 Customer Segments")
+    
+    if not st.session_state.customers:
+        st.info("No customers to segment!")
+        return
+    
+    # Define segments
+    segments = {
+        "🚀 VIP Clients": {
+            "criteria": lambda x: x.get('company') in ['Tech Corp', 'Global Inc'],
+            "count": 0,
+            "customers": []
+        },
+        "⭐ High Value": {
+            "criteria": lambda x: x.get('industry') == 'Technology',
+            "count": 0,
+            "customers": []
+        },
+        "📈 Growth Potential": {
+            "criteria": lambda x: 'added_date' in x and 
+                                 datetime.now() - datetime.fromisoformat(x['added_date']) < timedelta(days=30),
+            "count": 0,
+            "customers": []
+        }
+    }
+    
+    # Calculate segments
+    for customer in st.session_state.customers:
+        for segment_name, segment in segments.items():
+            if segment['criteria'](customer):
+                segment['count'] += 1
+                segment['customers'].append(customer)
+    
+    # Display segments
+    cols = st.columns(len(segments))
+    for (segment_name, segment), col in zip(segments.items(), cols):
+        with col:
+            st.metric(segment_name, segment['count'])
+            if st.button(f"View {segment_name}", key=segment_name):
+                st.session_state.current_segment = segment_name
+                st.session_state.segment_customers = segment['customers']
+
+def show_settings():
+    st.header("⚙️ Settings & Configuration")
+    
+    st.subheader("🔧 Data Management")
+    
+    col1, col2 = st.columns(2)
+    
+    with col1:
+        if st.button("💾 Export All Data"):
+            df = pd.DataFrame(st.session_state.customers)
             csv = df.to_csv(index=False)
             st.download_button(
-                label="📥 Download CSV",
+                label="Download CSV",
                 data=csv,
-                file_name="customers.csv",
-                mime="text/csv",
-                use_container_width=True
+                file_name="customers_export.csv",
+                mime="text/csv"
             )
-        
-        with col2:
-            # JSON Export
-            json_str = json.dumps(st.session_state.customers, indent=2)
-            st.download_button(
-                label="📥 Download JSON",
-                data=json_str,
-                file_name="customers.json",
-                mime="application/json",
-                use_container_width=True
-            )
+    
+    with col2:
+        if st.button("🔄 Reset Demo Data"):
+            st.session_state.customers = []
+            st.success("Data reset!")
+            st.rerun()
+    
+    st.subheader("🎨 Appearance")
+    theme = st.selectbox("Color Theme", ["Light", "Dark", "Auto"])
+    st.info(f"Selected theme: {theme}")
 
-    # Footer
-    st.markdown("---")
-    st.markdown(
-        "<div style='text-align: center; color: #666;'>"
-        "© 2025 Neo CRM | Built with ❤️ using Streamlit"
-        "</div>",
-        unsafe_allow_html=True
-    )
+def show_customer_detail(customer):
+    st.header(f"👤 {customer['name']}")
+    
+    col1, col2 = st.columns(2)
+    
+    with col1:
+        st.subheader("Contact Information")
+        st.write(f"**Email:** {customer['email']}")
+        st.write(f"**Phone:** {customer['phone']}")
+        st.write(f"**Company:** {customer['company']}")
+        st.write(f"**Industry:** {customer.get('industry', 'Not specified')}")
+    
+    with col2:
+        st.subheader("Activity")
+        st.write(f"**Added:** {datetime.fromisoformat(customer.get('added_date', datetime.now().isoformat())).strftime('%Y-%m-%d %H:%M')}")
+        if 'updated_date' in customer:
+            st.write(f"**Last Updated:** {datetime.fromisoformat(customer['updated_date']).strftime('%Y-%m-%d %H:%M')}")
+    
+    # Quick actions
+    st.subheader("Quick Actions")
+    col1, col2, col3 = st.columns(3)
+    
+    with col1:
+        if st.button("📧 Send Email"):
+            st.info("Email functionality would be implemented here")
+    
+    with col2:
+        if st.button("📞 Call Customer"):
+            st.info("Click to call functionality")
+    
+    with col3:
+        if st.button("📝 Add Note"):
+            st.text_area("Customer Notes", placeholder="Add notes about this customer...")
 
 if __name__ == "__main__":
     main()
